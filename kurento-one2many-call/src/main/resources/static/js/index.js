@@ -106,8 +106,12 @@ function printStats() {
 	if (!webRtcPeer) {
 		return console.error("Error: Cannot get stats from null webRtcPeer");
 	}
+
 	stats['browser_send'] = getBrowserOutgoingVideoStats(webRtcPeer, function(error, stats) {
-		if (error) return console.log("Warning: could not gather browser outgoing stats: " + error);
+		if (error) {
+			console.warn("Warning: could not gather browser outgoing stats: " + error);
+			return error;
+		}
 		document.getElementById('browserOutgoingSsrc').innerHTML = stats.ssrc;
 		document.getElementById('browserPacketsSent').innerHTML = stats.packetsSent;
 		document.getElementById('browserBytesSent').innerHTML = stats.bytesSent;
@@ -117,9 +121,11 @@ function printStats() {
 		document.getElementById('browserOutgoingIceRtt').innerHTML = stats.iceRoundTripTime;
 		document.getElementById('browserOutgoingAvailableBitrate').innerHTML = stats.availableBitrate;
 	});
+	
 	stats['browser_recv'] = getBrowserIncomingVideoStats(webRtcPeer, function(error, stats) {
 		if (error) {
-			return console.warn("Warning: could not gather browser incoming stats: " + error);
+			console.warn("Warning: could not gather browser incoming stats: " + error);
+			return error;
 		}
 		document.getElementById('browserIncomingSsrc').innerHTML = stats.ssrc;
 		document.getElementById('browserPacketsReceived').innerHTML = stats.packetsReceived;
@@ -132,6 +138,8 @@ function printStats() {
 		document.getElementById('browserIncomingIceRtt').innerHTML = stats.iceRoundTripTime;
 		document.getElementById('browserIncomingAvailableBitrate').innerHTML = stats.availableBitrate;
 	});
+
+	return stats;
 }
 
 /*
