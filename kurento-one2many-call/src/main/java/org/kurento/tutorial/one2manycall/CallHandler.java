@@ -25,6 +25,8 @@ import org.kurento.client.IceCandidate;
 import org.kurento.client.IceCandidateFoundEvent;
 import org.kurento.client.KurentoClient;
 import org.kurento.client.MediaPipeline;
+import org.kurento.client.MediaState;
+import org.kurento.client.MediaStateChangedEvent;
 import org.kurento.client.WebRtcEndpoint;
 import org.kurento.jsonrpc.JsonUtils;
 import org.slf4j.Logger;
@@ -122,6 +124,14 @@ public class CallHandler extends TextWebSocketHandler {
       presenterUserSession = new UserSession(session);
 
       pipeline = kurento.createMediaPipeline();
+
+      // Activate the ability to gather end-to-end latency stats
+      try {
+        pipeline.setLatencyStats(true);
+      } catch (Exception e) {
+        log.error("Error setting latency stats: {}", e.getMessage());
+      }
+
       presenterUserSession.setWebRtcEndpoint(new WebRtcEndpoint.Builder(pipeline).build());
 
       WebRtcEndpoint presenterWebRtc = presenterUserSession.getWebRtcEndpoint();
@@ -139,6 +149,24 @@ public class CallHandler extends TextWebSocketHandler {
             }
           } catch (IOException e) {
             log.debug(e.getMessage());
+          }
+        }
+      });
+
+      presenterWebRtc.addMediaStateChangedListener(new EventListener<MediaStateChangedEvent>() {
+
+        @Override
+        public void onEvent(MediaStateChangedEvent event) {
+          if (event.getNewState() == MediaState.CONNECTED) {
+            JsonObject response = new JsonObject();
+            response.addProperty("id", "mediaStateChanged");
+            try {
+              synchronized (session) {
+                session.sendMessage(new TextMessage(response.toString()));
+              }
+            } catch (IOException e) {
+              log.debug(e.getMessage());
+            }
           }
         }
       });
@@ -207,8 +235,27 @@ public class CallHandler extends TextWebSocketHandler {
         }
       });
 
+      nextWebRtc.addMediaStateChangedListener(new EventListener<MediaStateChangedEvent>() {
+
+        @Override
+        public void onEvent(MediaStateChangedEvent event) {
+          if (event.getNewState() == MediaState.CONNECTED) {
+            JsonObject response = new JsonObject();
+            response.addProperty("id", "mediaStateChanged");
+            try {
+              synchronized (session) {
+                session.sendMessage(new TextMessage(response.toString()));
+              }
+            } catch (IOException e) {
+              log.debug(e.getMessage());
+            }
+          }
+        }
+      });
+
       viewer.setWebRtcEndpoint(nextWebRtc);
       presenterUserSession.getWebRtcEndpoint().connect(nextWebRtc);
+
       String sdpOffer = jsonMessage.getAsJsonPrimitive("sdpOffer").getAsString();
       String sdpAnswer = nextWebRtc.processOffer(sdpOffer);
 

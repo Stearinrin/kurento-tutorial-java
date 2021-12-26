@@ -78,3 +78,9 @@ div.dragged {
 	border-color: blue !important;
 	z-index: 10 !important;
 }
+
+.table td, .table th {
+	padding: 0.25rem;
+	vertical-align: top;
+	border-top: 1px solid #dee2e6;
+}

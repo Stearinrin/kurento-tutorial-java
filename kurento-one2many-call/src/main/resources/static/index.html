@@ -10,16 +10,16 @@
 
 <link rel="stylesheet"
 	href="webjars/bootstrap/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="webjars/demo-console/index.css">
 <link rel="stylesheet"
 	href="webjars/ekko-lightbox/dist/ekko-lightbox.min.css">
-<link rel="stylesheet" href="webjars/demo-console/index.css">
 <link rel="stylesheet" href="css/kurento.css">
 
+<script src="/webjars/webrtc-adapter/release/adapter.js"></script>
 <script src="webjars/jquery/dist/jquery.min.js"></script>
 <script src="webjars/bootstrap/dist/js/bootstrap.min.js"></script>
-<script src="webjars/ekko-lightbox/dist/ekko-lightbox.min.js"></script>
-<script src="/webjars/webrtc-adapter/release/adapter.js"></script>
 <script src="webjars/demo-console/index.js"></script>
+<script src="webjars/ekko-lightbox/dist/ekko-lightbox.min.js"></script>
 
 <script src="js/kurento-utils.js"></script>
 <script src="js/index.js"></script>
@@ -31,15 +31,16 @@
 			<div class="container">
 				<div class="navbar-header">
 					<button type="button" class="navbar-toggle" data-toggle="collapse"
-						data-target=".navbar-collapse"></button>
+					data-target=".navbar-collapse"></button>
 					<a class="navbar-brand" href=".">Kurento Tutorial</a>
 				</div>
-				<div class="collapse navbar-collapse"
-					id="bs-example-navbar-collapse-1">
+				<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 					<ul class="nav navbar-nav navbar-right">
-						<li><a
+						<li>
+							<a
 							href="https://github.com/Kurento/kurento-tutorial-java/tree/master/kurento-one2many-call"><span
-								class="glyphicon glyphicon-file"></span> Source Code</a></li>
+								class="glyphicon glyphicon-file"></span> Source Code</a>
+						</li>
 					</ul>
 				</div>
 			</div>
@@ -85,7 +86,7 @@
 		<div class="row">
 			<div class="col-md-5">
 				<div class="row">
-					<div class="col-md-12">
+					<div class="col-md-12 text-center">
 						<a id="presenter" href="#" class="btn btn-success"><span
 							class="glyphicon glyphicon-play"></span> Presenter </a> <a
 							id="viewer" href="#" class="btn btn-primary"><span
@@ -94,16 +95,93 @@
 							class="glyphicon glyphicon-stop"></span> Stop</a>
 					</div>
 				</div>
-				<br /> <label class="control-label" for="console">Console</label><br>
-				<br>
-				<div id="console" class="democonsole">
-					<ul></ul>
+				<br />
+				<div class="col p-0">
+				<table class="table table-condensed">
+					<tr>
+						<th style="width: 30%;">Stat</th>
+						<th>Send</th>
+						<th>Receive</th>
+					</tr>
+					<tr>
+						<td>SSRC</td>
+						<td id="browserOutgoingSsrc">--</td>
+						<td id="browserIncomingSsrc">--</td>
+					</tr>
+					<tr>
+						<td>Packets</td>
+						<td id="browserPacketsSent">--</td>
+						<td id="browserPacketsReceived">--</td>
+					</tr>
+					<tr>
+						<td>Bytes</td>
+						<td id="browserBytesSent">--</td>
+						<td id="browserBytesReceived">--</td>
+					</tr>
+					<tr>
+						<td>Packets Lost</td>
+						<td>--</td>
+						<td id="browserIncomingPacketsLost">--</td>
+					</tr>
+					<tr>
+						<td>Fraction Lost</td>
+						<td>--</td>
+						<td id="kmsFractionLost">--</td>
+					</tr>
+					<tr>
+						<td>Jitter</td>
+						<td>--</td>
+						<td id="browserIncomingJitter">--</td>
+					</tr>
+					<tr>
+						<td>NACK</td>
+						<td id="browserNackReceived">--</td>
+						<td id="browserNackSent">--</td>
+					</tr>
+					<tr>
+						<td>FIR</td>
+						<td id="browserFirReceived">--</td>
+						<td id="browserFirSent">--</td>
+					</tr>
+					<tr>
+						<td>PLI</td>
+						<td id="browserPliReceived">--</td>
+						<td id="browserPliSent">--</td>
+					</tr>
+					<tr>
+						<td>ICE RTT</td>
+						<td id="browserOutgoingIceRtt">--</td>
+						<td id="browserIncomingIceRtt">--</td>
+					</tr>
+					<tr>
+						<td>REMB</td>
+						<td id="browserOutgoingAvailableBitrate">--</td>
+						<td id="browserIncomingAvailableBitrate">--</td>
+					</tr>
+				</table>
 				</div>
 			</div>
 			<div class="col-md-7">
 				<div id="videoBig">
 					<video id="video" autoplay width="640px" height="480px"
 						poster="img/webrtc.png"></video>
+				</div>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="col-md-12">
+			  	<p> KMS end-to-end latency:
+					<span id="e2eLatency">--</span>
+			  	</p>
+			</div>
+		  </div>
+	  
+		<div class="row">
+			<div class="col-md-12">
+				<label class="control-label" for="console">Console</label><br><br>
+				<div id="console" class="democonsole">
+					<ul></ul>
 				</div>
 			</div>
 		</div>
