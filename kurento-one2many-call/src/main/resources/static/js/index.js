@@ -58,6 +58,9 @@ ws.onmessage = function(message) {
 		});
 		break;
 	case 'mediaStateChanged':
+		// activateStatsTimeout();
+		break;
+	case 'activateStatsTimeout':
 		activateStatsTimeout();
 		break;
 	case 'latencyStatsResponse':

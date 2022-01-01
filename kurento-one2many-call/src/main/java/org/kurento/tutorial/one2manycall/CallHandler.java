@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+// import org.kurento.client.BaseRtpEndpoint;
 import org.kurento.client.EndpointStats;
 import org.kurento.client.EventListener;
 import org.kurento.client.IceCandidate;
@@ -296,6 +297,7 @@ public class CallHandler extends TextWebSocketHandler {
 
       viewerUserSession.setWebRtcEndpoint(nextWebRtc);
       presenterUserSession.getWebRtcEndpoint().connect(nextWebRtc);
+      activateStatsTimeout(presenterUserSession, viewers);
 
       String sdpOffer = jsonMessage.getAsJsonPrimitive("sdpOffer").getAsString();
       String sdpAnswer = nextWebRtc.processOffer(sdpOffer);
@@ -332,6 +334,38 @@ public class CallHandler extends TextWebSocketHandler {
         viewers.get(sessionId).getWebRtcEndpoint().release();
       }
       viewers.remove(sessionId);
+    }
+  }
+
+  private synchronized void activateStatsTimeout(UserSession presenter, ConcurrentHashMap<String, UserSession> viewers) {
+    if (presenter == null) {
+      log.debug("No active presenter");
+      return;
+    }
+    if (viewers.isEmpty()) {
+      log.debug("No active viewers");
+      return;
+    }
+
+    try {
+      JsonObject pResponse = new JsonObject();
+      pResponse.addProperty("id", "activateStatsTimeout");
+      presenter.sendMessage(pResponse);
+
+      viewers.forEach((id, session) -> {
+        JsonObject vResponse = new JsonObject();
+        vResponse.addProperty("id", "activateStatsTimeout");
+        try {
+          session.sendMessage(vResponse);
+        } catch (IOException e) {
+          log.debug(e.getMessage());
+        }
+      });
+    } catch (IOException e) {
+      log.debug(e.getMessage());
+    } catch (Exception e) {
+      log.warn("Stats timeout could not be activated: ", e);
+      return;
     }
   }
 
