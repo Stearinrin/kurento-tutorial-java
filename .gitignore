@@ -1,3 +1,4 @@
+
 # Temp files
 pipeline.dot
 target/
@@ -17,9 +18,7 @@ target/
 .springBeans
 .sts4-cache/
 
-# certificate
-*.p12
-*.pem
+.java-version
 
 # Created by https://www.toptal.com/developers/gitignore/api/java,bower,visualstudiocode,intellij
 # Edit at https://www.toptal.com/developers/gitignore?templates=java,bower,visualstudiocode,intellij
@@ -181,4 +180,3 @@ hs_err_pid*
 !.vscode/*.code-snippets
 
 # End of https://www.toptal.com/developers/gitignore/api/java,bower,visualstudiocode,intellij
-
