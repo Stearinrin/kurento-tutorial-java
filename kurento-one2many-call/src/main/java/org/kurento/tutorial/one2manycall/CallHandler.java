@@ -18,8 +18,10 @@
 package org.kurento.tutorial.one2manycall;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.kurento.client.EndpointStats;
 import org.kurento.client.EventListener;
 import org.kurento.client.IceCandidate;
 import org.kurento.client.IceCandidateFoundEvent;
@@ -27,6 +29,9 @@ import org.kurento.client.KurentoClient;
 import org.kurento.client.MediaPipeline;
 import org.kurento.client.MediaState;
 import org.kurento.client.MediaStateChangedEvent;
+import org.kurento.client.MediaType;
+import org.kurento.client.Stats;
+import org.kurento.client.StatsType;
 import org.kurento.client.WebRtcEndpoint;
 import org.kurento.jsonrpc.JsonUtils;
 import org.slf4j.Logger;
@@ -59,6 +64,7 @@ public class CallHandler extends TextWebSocketHandler {
 
   private MediaPipeline pipeline;
   private UserSession presenterUserSession;
+  private UserSession viewerUserSession;
 
   @Override
   public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
@@ -97,6 +103,41 @@ public class CallHandler extends TextWebSocketHandler {
                   .getAsString(), candidate.get("sdpMLineIndex").getAsInt());
           user.addCandidate(cand);
         }
+        break;
+      }
+      case "getLatencyStats": {
+        JsonObject response = new JsonObject();
+        response.addProperty("id", "latencyStatsResponse");
+        response.addProperty("sendTime", jsonMessage.get("timestamp").getAsLong());
+
+        log.info("Received getLatencyStats : {} at {}", jsonMessage.get("timestamp").getAsLong(), System.currentTimeMillis());
+
+        try {
+          JsonObject stats = new JsonObject();
+
+          Map<String, Stats> statsMap = viewerUserSession.getWebRtcEndpoint().getStats(MediaType.DATA);
+          statsMap.forEach((key, value) -> {
+            // look for the type we want
+            if (value.getType() != StatsType.endpoint) return;
+
+            // data log
+            EndpointStats endpointStats = (EndpointStats) value;
+            stats.addProperty("timestampMillis", value.getTimestampMillis());
+            stats.addProperty("inputAudioLatency", endpointStats.getInputAudioLatency());
+            stats.addProperty("audioE2ELatency", endpointStats.getAudioE2ELatency());
+            stats.addProperty("inputVideoLatency", endpointStats.getInputVideoLatency());
+            stats.addProperty("videoE2ELatency", endpointStats.getVideoE2ELatency());
+
+            log.info("DATA: {}", stats);
+          });
+          
+          response.addProperty("response", "accepted");
+          response.add("data", stats);
+        } catch (Exception e) {
+          response.addProperty("response", "rejected");
+          response.addProperty("message", e.getMessage());
+        }
+        session.sendMessage(new TextMessage(response.toString()));
         break;
       }
       case "stop":
@@ -213,8 +254,8 @@ public class CallHandler extends TextWebSocketHandler {
         session.sendMessage(new TextMessage(response.toString()));
         return;
       }
-      UserSession viewer = new UserSession(session);
-      viewers.put(session.getId(), viewer);
+      viewerUserSession = new UserSession(session);
+      viewers.put(session.getId(), viewerUserSession);
 
       WebRtcEndpoint nextWebRtc = new WebRtcEndpoint.Builder(pipeline).build();
 
@@ -253,7 +294,7 @@ public class CallHandler extends TextWebSocketHandler {
         }
       });
 
-      viewer.setWebRtcEndpoint(nextWebRtc);
+      viewerUserSession.setWebRtcEndpoint(nextWebRtc);
       presenterUserSession.getWebRtcEndpoint().connect(nextWebRtc);
 
       String sdpOffer = jsonMessage.getAsJsonPrimitive("sdpOffer").getAsString();
@@ -265,7 +306,7 @@ public class CallHandler extends TextWebSocketHandler {
       response.addProperty("sdpAnswer", sdpAnswer);
 
       synchronized (session) {
-        viewer.sendMessage(response);
+        viewerUserSession.sendMessage(response);
       }
       nextWebRtc.gatherCandidates();
     }

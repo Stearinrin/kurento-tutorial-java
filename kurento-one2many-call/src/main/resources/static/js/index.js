@@ -18,7 +18,17 @@
 var ws = new WebSocket('wss://' + location.host + '/call');
 var video;
 var webRtcPeer;
+var isRemote = null;
 var jsonDump = [];
+
+var latencyStats = {
+	get stats() {
+		return this._stats;
+	},
+	set stats(value) {
+		this._stats = value;
+	}
+};
 
 window.onload = function() {
 	console = new Console();
@@ -49,6 +59,9 @@ ws.onmessage = function(message) {
 		break;
 	case 'mediaStateChanged':
 		activateStatsTimeout();
+		break;
+	case 'latencyStatsResponse':
+		latencyStatsResponse(parsedMessage);
 		break;
 	case 'stopCommunication':
 		dispose();
@@ -85,14 +98,30 @@ function viewerResponse(message) {
 	}
 }
 
+function latencyStatsResponse(message) {
+	if (message.response != 'accepted') {
+		var errorMsg = message.message ? message.message : 'Unknow error';
+		console.info('Request was not accepted for the following reason: ' + errorMsg);
+		latencyStats = errorMsg;
+	} else {	
+		// message.type === "data"
+		stats = message.data;
+		console.log("---------- [endpoint data] ----------");
+		console.log(stats);
+	
+		// set latency stats
+		latencyStats = stats;
+	}
+}
+
 function activateStatsTimeout() {
 	setTimeout(function() {
 		if (!webRtcPeer) return;
 
 		let now = new Date();
 		let time_data = {
+			'timestamp': now.getTime(),
 			'stats': printStats(),
-			'timestamp': now.getTime()
 		}
 		jsonDump.push(time_data);
 
@@ -121,7 +150,7 @@ function printStats() {
 		document.getElementById('browserOutgoingIceRtt').innerHTML = stats.iceRoundTripTime;
 		document.getElementById('browserOutgoingAvailableBitrate').innerHTML = stats.availableBitrate;
 	});
-	
+
 	stats['browser_recv'] = getBrowserIncomingVideoStats(webRtcPeer, function(error, stats) {
 		if (error) {
 			console.warn("Warning: could not gather browser incoming stats: " + error);
@@ -138,6 +167,19 @@ function printStats() {
 		document.getElementById('browserIncomingIceRtt').innerHTML = stats.iceRoundTripTime;
 		document.getElementById('browserIncomingAvailableBitrate').innerHTML = stats.availableBitrate;
 	});
+
+	stats['latency'] = getLatencyStats(webRtcPeer, function(error, stats) {
+		if (error) {
+			console.warn("Warning: could not gather latency stats: " + error);
+			return error;
+		}
+		console.log(stats);
+		document.getElementById('e2eLatency').innerHTML = stats.video.E2ELatency + " milliseconds";
+
+		return stats;
+	});
+
+	latencyStats = {};
 
 	return stats;
 }
@@ -393,6 +435,38 @@ function getBrowserIncomingVideoStats(webRtcPeer, callback) {
 	return rtrn;
 }
 
+function getLatencyStats(webRtcPeer, callback) {
+	var message = {
+		id: 'getLatencyStats',
+		timestamp: new Date().getTime()
+	}
+	
+	if (isRemote === true) {
+		sendMessage(message);
+	} else {
+		return callback("Cannot get latency stats from local peer");
+	}	
+	
+	// check empty
+	if (!latencyStats) {
+		return callback("Non existent latency stats");
+	} else {
+		let rtrn = {
+			'audio': {},
+			'video': {}
+		};
+		let stats = latencyStats;
+
+		rtrn['timestamp'] = stats["timestampMillis"];
+		rtrn['audio']['inputLatency'] = stats["inputAudioLatency"] / 1000000;
+		rtrn['audio']['E2ELatency'] = stats["audioE2ELatency"] / 1000000;
+		rtrn['video']['inputLatency'] = stats["inputVideoLatency"] / 1000000;
+		rtrn['video']['E2ELatency'] = stats["videoE2ELatency"] / 1000000;
+		
+		return callback(null, rtrn);
+	}
+}
+
 function presenter() {
 	if (!webRtcPeer) {
 		showSpinner(video);
@@ -409,6 +483,7 @@ function presenter() {
 					webRtcPeer.generateOffer(onOfferPresenter);
 				});
 
+		isRemote = false;
 		enableStopButton();
 	}
 }
@@ -440,6 +515,7 @@ function viewer() {
 					this.generateOffer(onOfferViewer);
 				});
 
+		isRemote = true;
 		enableStopButton();
 	}
 }
@@ -481,6 +557,8 @@ function dispose() {
 		webRtcPeer = null;
 	}
 	hideSpinner(video);
+
+	isRemote = null;
 
 	disableStopButton();
 }
