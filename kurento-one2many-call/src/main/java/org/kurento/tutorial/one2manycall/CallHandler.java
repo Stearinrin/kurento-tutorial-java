@@ -67,6 +67,17 @@ public class CallHandler extends TextWebSocketHandler {
   private UserSession presenterUserSession;
   private UserSession viewerUserSession;
 
+  // mixBandwidth affects the MinVideoBandwidth.
+  // Unit: kbps
+  // Default: 100
+  // 0 means no limit
+  private static Integer minBandwidth = 0;
+  // maxBandwidth affects the MaxVideoBandwidth.
+  // Unit: kbps
+  // Default: 500
+  // 0 means no limit
+  private static Integer maxBandwidth = 0;
+
   @Override
   public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
     JsonObject jsonMessage = gson.fromJson(message.getPayload(), JsonObject.class);
@@ -178,6 +189,12 @@ public class CallHandler extends TextWebSocketHandler {
 
       WebRtcEndpoint presenterWebRtc = presenterUserSession.getWebRtcEndpoint();
 
+      // Bandwidth settings
+      presenterWebRtc.setMinVideoSendBandwidth(minBandwidth);
+      presenterWebRtc.setMaxVideoSendBandwidth(maxBandwidth);
+      // presenterWebRtc.setMinOutputBitrate(minBandwidth);
+      presenterWebRtc.setMaxOutputBitrate(maxBandwidth);
+
       presenterWebRtc.addIceCandidateFoundListener(new EventListener<IceCandidateFoundEvent>() {
 
         @Override
@@ -259,6 +276,13 @@ public class CallHandler extends TextWebSocketHandler {
       viewers.put(session.getId(), viewerUserSession);
 
       WebRtcEndpoint nextWebRtc = new WebRtcEndpoint.Builder(pipeline).build();
+
+      // Bandwidth settings
+      // nextWebRtc.setMaxAudioRecvBandwidth(minBandwidth);
+      nextWebRtc.setMinVideoRecvBandwidth(minBandwidth);
+      nextWebRtc.setMaxVideoRecvBandwidth(maxBandwidth);
+      // nextWebRtc.setMinOutputBitrate(minBandwidth);
+      nextWebRtc.setMaxOutputBitrate(maxBandwidth);
 
       nextWebRtc.addIceCandidateFoundListener(new EventListener<IceCandidateFoundEvent>() {
 
