@@ -77,6 +77,9 @@ public class CallHandler extends TextWebSocketHandler {
   // Default: 500
   // 0 means no limit
   private static Integer maxBandwidth = 0;
+  // number of viewers
+  // Default: 0
+  private static Integer numViewers = 2;
 
   @Override
   public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
@@ -122,7 +125,7 @@ public class CallHandler extends TextWebSocketHandler {
         response.addProperty("id", "latencyStatsResponse");
         response.addProperty("sendTime", jsonMessage.get("timestamp").getAsLong());
 
-        log.info("Received getLatencyStats : {} at {}", jsonMessage.get("timestamp").getAsLong(), System.currentTimeMillis());
+        // log.info("Received getLatencyStats : {} at {}", jsonMessage.get("timestamp").getAsLong(), System.currentTimeMillis());
 
         try {
           JsonObject stats = new JsonObject();
@@ -140,7 +143,7 @@ public class CallHandler extends TextWebSocketHandler {
             stats.addProperty("inputVideoLatency", endpointStats.getInputVideoLatency());
             stats.addProperty("videoE2ELatency", endpointStats.getVideoE2ELatency());
 
-            log.info("DATA: {}", stats);
+            // log.info("DATA: {}", stats);
           });
           
           response.addProperty("response", "accepted");
@@ -321,6 +324,8 @@ public class CallHandler extends TextWebSocketHandler {
 
       viewerUserSession.setWebRtcEndpoint(nextWebRtc);
       presenterUserSession.getWebRtcEndpoint().connect(nextWebRtc);
+
+      // Start stats' collection
       activateStatsTimeout(presenterUserSession, viewers);
 
       String sdpOffer = jsonMessage.getAsJsonPrimitive("sdpOffer").getAsString();
@@ -366,7 +371,7 @@ public class CallHandler extends TextWebSocketHandler {
       log.debug("No active presenter");
       return;
     }
-    if (viewers.isEmpty()) {
+    if (viewers.size() < numViewers) {
       log.debug("No active viewers");
       return;
     }
