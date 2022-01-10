@@ -321,7 +321,7 @@ function getRemotePeerStats(peerMediaElement, mediaTrack, callback){
 	
 			// Get the first RTP report to import its stats
 			if (reportsRtp.length < 1) {
-				onsole.warn("No RTP reports found in RTCStats");
+				console.warn("No RTP reports found in RTCStats");
 				return;
 			}
 			const reportRtp = reportsRtp[0];
@@ -485,15 +485,24 @@ function presenter() {
 
 		var options = {
 			localVideo : video,
-			onicecandidate : onIceCandidate
+			mediaConstraints : {
+				audio : true,
+				video: {
+					width: 1920,
+					framerate: 60
+				}
+			},
+			onicecandidate : onIceCandidate,
+			simulcast: true
 		}
 		webRtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options,
-				function(error) {
-					if (error) {
-						return console.error(error);
-					}
-					webRtcPeer.generateOffer(onOfferPresenter);
-				});
+			function(error) {
+				if (error) {
+					return console.error(error);
+				}
+				webRtcPeer.generateOffer(onOfferPresenter);
+			}
+		);
 
 		isRemote = false;
 		enableStopButton();
@@ -517,15 +526,23 @@ function viewer() {
 
 		var options = {
 			remoteVideo : video,
+			mediaConstraints : {
+				audio : true,
+				video: {
+					width: 1920,
+					framerate: 30
+				}
+			},
 			onicecandidate : onIceCandidate
 		}
 		webRtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options,
-				function(error) {
-					if (error) {
-						return console.error(error);
-					}
-					this.generateOffer(onOfferViewer);
-				});
+			function(error) {
+				if (error) {
+					return console.error(error);
+				}
+				this.generateOffer(onOfferViewer);
+			}
+		);
 
 		isRemote = true;
 		enableStopButton();

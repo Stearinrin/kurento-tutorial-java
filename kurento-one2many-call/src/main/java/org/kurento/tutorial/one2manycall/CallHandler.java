@@ -81,7 +81,6 @@ public class CallHandler extends TextWebSocketHandler {
   // 0 means no limit
   private static Integer maxBandwidth = 0;
   // number of viewers
-  // Default: 0
   private static Integer numViewers = 2;
 
   @Override
