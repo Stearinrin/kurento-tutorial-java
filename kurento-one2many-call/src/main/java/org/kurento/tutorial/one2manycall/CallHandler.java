@@ -152,7 +152,10 @@ public class CallHandler extends TextWebSocketHandler {
           response.addProperty("response", "rejected");
           response.addProperty("message", e.getMessage());
         }
-        session.sendMessage(new TextMessage(response.toString()));
+
+        synchronized (session) {
+          session.sendMessage(new TextMessage(response.toString()));
+        }
         break;
       }
       case "stop":
@@ -193,8 +196,11 @@ public class CallHandler extends TextWebSocketHandler {
       WebRtcEndpoint presenterWebRtc = presenterUserSession.getWebRtcEndpoint();
 
       // Bandwidth settings
-      presenterWebRtc.setMinVideoSendBandwidth(minBandwidth);
-      presenterWebRtc.setMaxVideoSendBandwidth(maxBandwidth);
+      presenterWebRtc.setMinVideoRecvBandwidth(minBandwidth);
+      presenterWebRtc.setMaxAudioRecvBandwidth(maxBandwidth);
+      presenterWebRtc.setMaxVideoRecvBandwidth(maxBandwidth);
+      // presenterWebRtc.setMinVideoSendBandwidth(minBandwidth);
+      // presenterWebRtc.setMaxVideoSendBandwidth(maxBandwidth);
       // presenterWebRtc.setMinOutputBitrate(minBandwidth);
       presenterWebRtc.setMaxOutputBitrate(maxBandwidth);
 
@@ -244,8 +250,8 @@ public class CallHandler extends TextWebSocketHandler {
       synchronized (session) {
         presenterUserSession.sendMessage(response);
       }
-      presenterWebRtc.gatherCandidates();
 
+      presenterWebRtc.gatherCandidates();
     } else {
       JsonObject response = new JsonObject();
       response.addProperty("id", "presenterResponse");
@@ -281,9 +287,11 @@ public class CallHandler extends TextWebSocketHandler {
       WebRtcEndpoint nextWebRtc = new WebRtcEndpoint.Builder(pipeline).build();
 
       // Bandwidth settings
+      // nextWebRtc.setMinVideoRecvBandwidth(minBandwidth);
       // nextWebRtc.setMaxAudioRecvBandwidth(minBandwidth);
-      nextWebRtc.setMinVideoRecvBandwidth(minBandwidth);
-      nextWebRtc.setMaxVideoRecvBandwidth(maxBandwidth);
+      // nextWebRtc.setMaxVideoRecvBandwidth(maxBandwidth);
+      nextWebRtc.setMinVideoSendBandwidth(minBandwidth);
+      nextWebRtc.setMaxVideoSendBandwidth(maxBandwidth);
       // nextWebRtc.setMinOutputBitrate(minBandwidth);
       nextWebRtc.setMaxOutputBitrate(maxBandwidth);
 
@@ -325,9 +333,6 @@ public class CallHandler extends TextWebSocketHandler {
       viewerUserSession.setWebRtcEndpoint(nextWebRtc);
       presenterUserSession.getWebRtcEndpoint().connect(nextWebRtc);
 
-      // Start stats' collection
-      activateStatsTimeout(presenterUserSession, viewers);
-
       String sdpOffer = jsonMessage.getAsJsonPrimitive("sdpOffer").getAsString();
       String sdpAnswer = nextWebRtc.processOffer(sdpOffer);
 
@@ -339,7 +344,17 @@ public class CallHandler extends TextWebSocketHandler {
       synchronized (session) {
         viewerUserSession.sendMessage(response);
       }
-      nextWebRtc.gatherCandidates();
+
+      if (viewers.size() == numViewers) {
+        // Start stats' collection
+        for (UserSession viewer : viewers.values()) {
+          viewer.getWebRtcEndpoint().gatherCandidates();
+          activateStatsTimeout(viewer);
+        }
+        
+        activateStatsTimeout(presenterUserSession);
+      }
+      // nextWebRtc.gatherCandidates();
     }
   }
 
@@ -366,30 +381,18 @@ public class CallHandler extends TextWebSocketHandler {
     }
   }
 
-  private synchronized void activateStatsTimeout(UserSession presenter, ConcurrentHashMap<String, UserSession> viewers) {
-    if (presenter == null) {
-      log.debug("No active presenter");
-      return;
-    }
-    if (viewers.size() < numViewers) {
-      log.debug("No active viewers");
+  private synchronized void activateStatsTimeout(UserSession session) {
+    if (session == null) {
+      log.warn("The session is null");
       return;
     }
 
     try {
-      JsonObject pResponse = new JsonObject();
-      pResponse.addProperty("id", "activateStatsTimeout");
-      presenter.sendMessage(pResponse);
-
-      viewers.forEach((id, session) -> {
-        JsonObject vResponse = new JsonObject();
-        vResponse.addProperty("id", "activateStatsTimeout");
-        try {
-          session.sendMessage(vResponse);
-        } catch (IOException e) {
-          log.debug(e.getMessage());
-        }
-      });
+      JsonObject response = new JsonObject();
+      response.addProperty("id", "activateStatsTimeout");
+      synchronized (session) {
+        session.sendMessage(response);
+      }
     } catch (IOException e) {
       log.debug(e.getMessage());
     } catch (Exception e) {
