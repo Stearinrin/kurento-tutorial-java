@@ -20,6 +20,7 @@ package org.kurento.tutorial.one2manycall;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 // import org.kurento.client.BaseRtpEndpoint;
 import org.kurento.client.EndpointStats;
@@ -58,14 +59,16 @@ public class CallHandler extends TextWebSocketHandler {
   private static final Logger log = LoggerFactory.getLogger(CallHandler.class);
   private static final Gson gson = new GsonBuilder().create();
 
-  private final ConcurrentHashMap<String, UserSession> viewers = new ConcurrentHashMap<>();
+  private ConcurrentHashMap<String, UserSession> viewers = new ConcurrentHashMap<>();
+
+  private ConcurrentHashMap<String, ConcurrentLinkedQueue<Long>> presenterTimestamps = new ConcurrentHashMap<>();
 
   @Autowired
   private KurentoClient kurento;
 
   private MediaPipeline pipeline;
   private UserSession presenterUserSession;
-  private UserSession viewerUserSession;
+  // private UserSession viewerUserSession;
 
   // mixBandwidth affects the MinVideoBandwidth.
   // Unit: kbps
@@ -121,40 +124,10 @@ public class CallHandler extends TextWebSocketHandler {
         break;
       }
       case "getLatencyStats": {
-        JsonObject response = new JsonObject();
-        response.addProperty("id", "latencyStatsResponse");
-        response.addProperty("sendTime", jsonMessage.get("timestamp").getAsLong());
-
-        // log.info("Received getLatencyStats : {} at {}", jsonMessage.get("timestamp").getAsLong(), System.currentTimeMillis());
-
         try {
-          JsonObject stats = new JsonObject();
-
-          Map<String, Stats> statsMap = viewerUserSession.getWebRtcEndpoint().getStats(MediaType.DATA);
-          statsMap.forEach((key, value) -> {
-            // look for the type we want
-            if (value.getType() != StatsType.endpoint) return;
-
-            // data log
-            EndpointStats endpointStats = (EndpointStats) value;
-            stats.addProperty("timestampMillis", value.getTimestampMillis());
-            stats.addProperty("inputAudioLatency", endpointStats.getInputAudioLatency());
-            stats.addProperty("audioE2ELatency", endpointStats.getAudioE2ELatency());
-            stats.addProperty("inputVideoLatency", endpointStats.getInputVideoLatency());
-            stats.addProperty("videoE2ELatency", endpointStats.getVideoE2ELatency());
-
-            // log.info("DATA: {}", stats);
-          });
-          
-          response.addProperty("response", "accepted");
-          response.add("data", stats);
-        } catch (Exception e) {
-          response.addProperty("response", "rejected");
-          response.addProperty("message", e.getMessage());
-        }
-
-        synchronized (session) {
-          session.sendMessage(new TextMessage(response.toString()));
+          sendLatencyStats(session, jsonMessage);
+        } catch (Throwable t) {
+          handleErrorResponse(t, session, "getLatencyStatsResponse");
         }
         break;
       }
@@ -281,8 +254,8 @@ public class CallHandler extends TextWebSocketHandler {
         session.sendMessage(new TextMessage(response.toString()));
         return;
       }
-      viewerUserSession = new UserSession(session);
-      viewers.put(session.getId(), viewerUserSession);
+      UserSession viewerUserSession = new UserSession(session);
+      viewers.put(session.getId(), viewerUserSession);          presenterTimestamps.put(session.getId(), new ConcurrentLinkedQueue<Long>());
 
       WebRtcEndpoint nextWebRtc = new WebRtcEndpoint.Builder(pipeline).build();
 
@@ -373,6 +346,7 @@ public class CallHandler extends TextWebSocketHandler {
       }
       pipeline = null;
       presenterUserSession = null;
+      presenterTimestamps.remove(sessionId);
     } else if (viewers.containsKey(sessionId)) {
       if (viewers.get(sessionId).getWebRtcEndpoint() != null) {
         viewers.get(sessionId).getWebRtcEndpoint().release();
@@ -398,6 +372,56 @@ public class CallHandler extends TextWebSocketHandler {
     } catch (Exception e) {
       log.warn("Stats timeout could not be activated: ", e);
       return;
+    }
+  }
+
+  private synchronized void sendLatencyStats(final WebSocketSession session, JsonObject jsonMessage) 
+      throws IOException {
+    if (jsonMessage.has("isPresenter")) {
+      assert jsonMessage.get("isPresenter").getAsBoolean() == true;
+      if (session == presenterUserSession.getSession()) {
+        presenterTimestamps.forEach((key, queue) -> {
+          queue.offer(jsonMessage.get("timestamp").getAsLong());
+        });
+      } else {
+        log.warn("The session is not the presenter");
+      }
+      return;
+    }
+
+    JsonObject response = new JsonObject();
+    response.addProperty("id", "latencyStatsResponse");
+    response.addProperty("sendTime", jsonMessage.get("timestamp").getAsLong());
+
+    // log.info("Received getLatencyStats : {} at {}", jsonMessage.get("timestamp").getAsLong(), System.currentTimeMillis());
+
+    JsonObject stats = new JsonObject();
+
+    Map<String, Stats> statsMap = viewers.get(session.getId()).getWebRtcEndpoint().getStats(MediaType.DATA);
+    statsMap.forEach((key, value) -> {
+      // look for the type we want
+      if (value.getType() != StatsType.endpoint) return;
+
+      // data log
+      EndpointStats endpointStats = (EndpointStats) value;
+      stats.addProperty("timestampMillis", value.getTimestampMillis());
+      stats.addProperty("inputAudioLatency", endpointStats.getInputAudioLatency());
+      stats.addProperty("audioE2ELatency", endpointStats.getAudioE2ELatency());
+      stats.addProperty("inputVideoLatency", endpointStats.getInputVideoLatency());
+      stats.addProperty("videoE2ELatency", endpointStats.getVideoE2ELatency());
+      if (presenterTimestamps.size() > 0) {
+        ConcurrentLinkedQueue<Long> viewerQueue = presenterTimestamps.get(session.getId());
+        stats.addProperty("presenterTimestamp", viewerQueue.poll());
+      }
+
+      // log.info("DATA: {}", stats);
+    });
+    
+    response.addProperty("response", "accepted");
+    response.add("data", stats);
+
+    synchronized (session) {
+      session.sendMessage(new TextMessage(response.toString()));
     }
   }
 

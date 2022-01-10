@@ -177,7 +177,8 @@ function printStats() {
 			return error;
 		}
 		console.log(stats);
-		document.getElementById('e2eLatency').innerHTML = stats.video.E2ELatency + " milliseconds";
+		document.getElementById('KmsE2ELatency').innerHTML = stats.video.E2ELatency + " milliseconds";
+		document.getElementById('BrowserE2ELatency').innerHTML = stats.browserE2ELatency + " seconds";
 
 		return stats;
 	});
@@ -443,11 +444,15 @@ function getLatencyStats(webRtcPeer, callback) {
 		id: 'getLatencyStats',
 		timestamp: new Date().getTime()
 	}
-	
+
 	if (isRemote === true) {
 		sendMessage(message);
-	} else {
+	} else if (isRemote === false) {
+		message['isPresenter'] = true;
+		sendMessage(message);
 		return callback("Cannot get latency stats from local peer");
+	} else {
+		return callback("The isRemote flag is not set or unknown value");
 	}	
 	
 	// check empty
@@ -459,12 +464,16 @@ function getLatencyStats(webRtcPeer, callback) {
 			'video': {}
 		};
 		let stats = latencyStats;
+		let now = new Date().getTime();
 
 		rtrn['timestamp'] = stats["timestampMillis"];
 		rtrn['audio']['inputLatency'] = stats["inputAudioLatency"] / 1000000;
 		rtrn['audio']['E2ELatency'] = stats["audioE2ELatency"] / 1000000;
 		rtrn['video']['inputLatency'] = stats["inputVideoLatency"] / 1000000;
 		rtrn['video']['E2ELatency'] = stats["videoE2ELatency"] / 1000000;
+		if (stats["presenterTimestamp"] !== undefined) {
+			rtrn['browserE2ELatency'] = (now - stats["presenterTimestamp"]) / 1000;
+		}
 		
 		return callback(null, rtrn);
 	}
