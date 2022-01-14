@@ -466,11 +466,16 @@ function getLatencyStats(webRtcPeer, callback) {
 		let stats = latencyStats;
 		let now = new Date().getTime();
 
-		rtrn['timestamp'] = stats["timestampMillis"];
-		rtrn['audio']['inputLatency'] = stats["inputAudioLatency"] / 1000000;
-		rtrn['audio']['E2ELatency'] = stats["audioE2ELatency"] / 1000000;
-		rtrn['video']['inputLatency'] = stats["inputVideoLatency"] / 1000000;
-		rtrn['video']['E2ELatency'] = stats["videoE2ELatency"] / 1000000;
+		if (stats.audio) {
+			rtrn['audio']['timestamp'] = stats["audio"]["timestampMillis"];
+			rtrn['audio']['inputLatency'] = stats["audio"]["inputLatency"] / 1000000;
+			rtrn['audio']['E2ELatency'] = stats["audio"]["E2ELatency"] / 1000000;
+		}
+		if (stats.video) {
+			rtrn['video']['timestamp'] = stats["video"]["timestampMillis"];
+			rtrn['video']['inputLatency'] = stats["video"]["inputLatency"] / 1000000;
+			rtrn['video']['E2ELatency'] = stats["video"]["E2ELatency"] / 1000000;
+		}
 		if (stats["presenterTimestamp"] !== undefined) {
 			rtrn['browserE2ELatency'] = (now - stats["presenterTimestamp"]) / 1000;
 		}
@@ -485,13 +490,6 @@ function presenter() {
 
 		var options = {
 			localVideo : video,
-			mediaConstraints : {
-				audio : true,
-				video: {
-					width: 1920,
-					framerate: 60
-				}
-			},
 			onicecandidate : onIceCandidate,
 			simulcast: true
 		}
@@ -529,7 +527,7 @@ function viewer() {
 			mediaConstraints : {
 				audio : true,
 				video: {
-					width: 1920,
+					height: 360,
 					framerate: 30
 				}
 			},

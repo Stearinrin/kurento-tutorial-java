@@ -396,26 +396,38 @@ public class CallHandler extends TextWebSocketHandler {
 
     JsonObject stats = new JsonObject();
 
-    Map<String, Stats> statsMap = viewers.get(session.getId()).getWebRtcEndpoint().getStats(MediaType.DATA);
-    statsMap.forEach((key, value) -> {
+    Map<String, Stats> audioStatsMap = viewers.get(session.getId()).getWebRtcEndpoint().getStats(MediaType.AUDIO);
+    JsonObject audioStats = new JsonObject();
+    audioStatsMap.forEach((key, value) -> {
       // look for the type we want
       if (value.getType() != StatsType.endpoint) return;
 
       // data log
       EndpointStats endpointStats = (EndpointStats) value;
-      stats.addProperty("timestampMillis", value.getTimestampMillis());
-      stats.addProperty("inputAudioLatency", endpointStats.getInputAudioLatency());
-      stats.addProperty("audioE2ELatency", endpointStats.getAudioE2ELatency());
-      stats.addProperty("inputVideoLatency", endpointStats.getInputVideoLatency());
-      stats.addProperty("videoE2ELatency", endpointStats.getVideoE2ELatency());
-      if (presenterTimestamps.size() > 0) {
-        ConcurrentLinkedQueue<Long> viewerQueue = presenterTimestamps.get(session.getId());
-        stats.addProperty("presenterTimestamp", viewerQueue.poll());
-      }
+      audioStats.addProperty("timestampMillis", value.getTimestampMillis());
+      audioStats.addProperty("inputLatency", endpointStats.getInputAudioLatency());
+      audioStats.addProperty("E2ELatency", endpointStats.getAudioE2ELatency());
 
-      // log.info("DATA: {}", stats);
+      // log.info("AUDIO: {}", audioStats);
+    });
+
+    Map<String, Stats> videoStatsMap = viewers.get(session.getId()).getWebRtcEndpoint().getStats(MediaType.VIDEO);
+    JsonObject videoStats = new JsonObject();
+    videoStatsMap.forEach((key, value) -> {
+      // look for the type we want
+      if (value.getType() != StatsType.endpoint) return;
+
+      // data log
+      EndpointStats endpointStats = (EndpointStats) value;
+      videoStats.addProperty("timestampMillis", value.getTimestampMillis());
+      videoStats.addProperty("inputLatency", endpointStats.getInputVideoLatency());
+      videoStats.addProperty("E2ELatency", endpointStats.getVideoE2ELatency());
+
+      // log.info("VIDEO: {}", videoStats);
     });
     
+    stats.add("audio", audioStats);
+    stats.add("video", videoStats);
     response.addProperty("response", "accepted");
     response.add("data", stats);
 
